@@ -1,4 +1,3 @@
-[README.md](https://github.com/user-attachments/files/33228412/README.md)
 # Coverage Compass
 
 **Turns a confusing insurance letter about a menopause prescription into plain language, a deadline, and a next step.**

@@ -7,7 +7,7 @@ always tests exactly what ships.
 Usage:
     pip install anthropic
     export ANTHROPIC_API_KEY=your-key
-    python evals/run_evals.py
+    python run_evals.py
 
 Exit code is 1 if the false reassurance rate is above zero (release gate).
 """
@@ -20,8 +20,8 @@ from pathlib import Path
 
 import anthropic
 
-ROOT = Path(__file__).resolve().parent.parent
-CASES = json.loads((ROOT / "evals" / "test-cases.json").read_text())
+ROOT = Path(__file__).resolve().parent
+CASES = json.loads((ROOT / "test-cases.json").read_text())
 HTML = (ROOT / "index.html").read_text()
 
 EVAL_DATE = date.fromisoformat(CASES["eval_date"])
@@ -138,7 +138,7 @@ def main():
         if not r["deadline_ok"]:
             print(f"   deadline miss [{r['id']}]: expected {r['deadline_expected']}, got {r['deadline_got']}")
 
-    (ROOT / "evals" / "results.json").write_text(json.dumps(results, indent=2))
+    (ROOT / "results.json").write_text(json.dumps(results, indent=2))
     sys.exit(1 if false_reassurance > 0 else 0)
 
 

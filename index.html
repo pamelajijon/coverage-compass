@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage Compass — understand your prescription coverage letter</title>
+<meta name="description" content="A prototype that turns insurance coverage letters for menopause prescriptions into plain language and clear next steps.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #241A2E;
+    --ink-soft: #5E5468;
+    --page: #F6F5F8;
+    --paper: #FFFFFF;
+    --rule: #DCD8E1;
+    --plum: #5B3466;
+    --plum-tint: #EFE7F1;
+    --highlight: #F3E46B;
+    --amber: #9A4A0B;
+    --amber-tint: #FBF0E4;
+    --sage: #2F5D4E;
+    --sage-tint: #E6EFEB;
+    --sans: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --serif: "Libre Caslon Text", Georgia, "Times New Roman", serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--page); color: var(--ink);
+    font: 400 1rem/1.55 var(--sans);
+  }
+  a { color: var(--plum); }
+  :focus-visible { outline: 3px solid var(--plum); outline-offset: 2px; border-radius: 3px; }
+
+  header.site {
+    max-width: 72rem; margin: 0 auto; padding: 2.5rem 1.25rem 1.5rem;
+  }
+  header.site h1 {
+    font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.1; margin: 0 0 .6rem;
+    font-weight: 700; letter-spacing: -0.01em;
+  }
+  header.site p { margin: 0; max-width: 40rem; color: var(--ink-soft); font-size: 1.08rem; }
+
+  main {
+    max-width: 72rem; margin: 0 auto; padding: 0 1.25rem 3rem;
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 1.75rem;
+    align-items: start;
+  }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+  h2 { font-size: 1.15rem; margin: 0 0 .75rem; font-weight: 700; }
+
+  /* Controls */
+  .controls { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+  .chip {
+    font: 500 .92rem var(--sans); color: var(--ink); background: var(--paper);
+    border: 1px solid var(--rule); border-radius: 999px; padding: .45rem .9rem; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+  /* The letter */
+  .letter {
+    background: var(--paper); border: 1px solid var(--rule);
+    padding: 1.75rem 1.6rem; font: 400 .95rem/1.75 var(--serif);
+    white-space: pre-wrap; word-wrap: break-word; min-height: 18rem;
+    box-shadow: 0 1px 0 var(--rule), 0 6px 0 -3px var(--paper), 0 7px 0 -3px var(--rule);
+  }
+  .letter[hidden], textarea[hidden] { display: none; }
+  textarea {
+    width: 100%; min-height: 18rem; resize: vertical; padding: 1.25rem;
+    font: 400 .95rem/1.7 var(--serif); color: var(--ink);
+    border: 1px solid var(--rule); background: var(--paper);
+  }
+  button.term {
+    all: unset; cursor: pointer; background: linear-gradient(transparent 12%, var(--highlight) 12%, var(--highlight) 88%, transparent 88%);
+    padding: 0 .1em; border-radius: 2px;
+  }
+  button.term:focus-visible { outline: 2px solid var(--plum); }
+  button.term[aria-expanded="true"] { background: var(--plum); color: var(--paper); }
+
+  .definition {
+    margin-top: .9rem; padding: .85rem 1rem; background: var(--plum-tint);
+    border-left: 3px solid var(--plum); font-size: .95rem;
+  }
+  .definition strong { display: block; margin-bottom: .15rem; }
+  .hint { font-size: .88rem; color: var(--ink-soft); margin: .75rem 0 0; }
+
+  .actions { margin-top: 1rem; display: flex; gap: .75rem; flex-wrap: wrap; align-items: center; }
+  .primary {
+    font: 600 1rem var(--sans); background: var(--plum); color: #fff; border: 0;
+    padding: .75rem 1.3rem; border-radius: 6px; cursor: pointer;
+  }
+  .primary:disabled { opacity: .55; cursor: progress; }
+
+  /* Live mode */
+  details.live {
+    margin-top: 1.25rem; border-top: 1px solid var(--rule); padding-top: 1rem; font-size: .93rem;
+  }
+  details.live summary { cursor: pointer; font-weight: 600; }
+  details.live label { display: block; margin: .75rem 0 .3rem; }
+  details.live input {
+    width: 100%; padding: .55rem .7rem; font: .93rem var(--sans);
+    border: 1px solid var(--rule); border-radius: 4px; background: var(--paper);
+  }
+
+  /* Results */
+  .results { min-height: 10rem; }
+  .empty {
+    border: 1px dashed var(--rule); padding: 2rem 1.5rem; color: var(--ink-soft); background: transparent;
+  }
+  .block { padding: 1.1rem 0; border-bottom: 1px solid var(--rule); }
+  .block:first-of-type { padding-top: 0; }
+  .block:last-child { border-bottom: 0; }
+  .block h3 { margin: 0 0 .35rem; font-size: 1rem; font-weight: 700; }
+  .block p { margin: 0; }
+  .summary { font-size: 1.2rem; line-height: 1.45; font-weight: 500; }
+  .evidence {
+    margin-top: .5rem; font: italic .88rem/1.5 var(--serif); color: var(--ink-soft);
+    padding-left: .75rem; border-left: 2px solid var(--highlight);
+  }
+  .deadline { background: var(--amber-tint); padding: 1rem 1.1rem; border-bottom: 0; margin: .75rem 0; }
+  .deadline h3 { color: var(--amber); }
+  .deadline .date { font-size: 1.35rem; font-weight: 700; color: var(--amber); }
+  ol.steps { margin: .25rem 0 0; padding-left: 1.3rem; }
+  ol.steps li { margin-bottom: .45rem; }
+  ul.qs { margin: .25rem 0 0; padding-left: 1.2rem; }
+  ul.qs li { margin-bottom: .35rem; }
+  .handoff { padding: 1rem 1.1rem; margin-top: .75rem; border-bottom: 0; }
+  .handoff.urgent { background: var(--amber-tint); }
+  .handoff.routine { background: var(--sage-tint); }
+  .handoff.urgent h3 { color: var(--amber); }
+  .handoff.routine h3 { color: var(--sage); }
+  .error { background: var(--amber-tint); padding: 1rem; color: var(--amber); }
+
+  footer {
+    max-width: 72rem; margin: 0 auto; padding: 1.5rem 1.25rem 3rem;
+    border-top: 1px solid var(--rule); font-size: .88rem; color: var(--ink-soft);
+  }
+  footer p { max-width: 46rem; margin: 0 0 .5rem; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .results > .block, .results > .deadline, .results > .handoff { animation: settle .35s ease-out both; }
+    @keyframes settle { from { opacity: 0; } to { opacity: 1; } }
+  }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <h1>Coverage Compass</h1>
+  <p>Got a letter from your insurance about a menopause prescription? Pick an example or paste your own, and see what it means, when you need to act, and who to call.</p>
+</header>
+
+<main>
+  <section aria-labelledby="letter-h">
+    <h2 id="letter-h">Your letter</h2>
+    <div class="controls" role="group" aria-label="Choose a letter">
+      <button class="chip" data-sample="patch" aria-pressed="true">Patch denied</button>
+      <button class="chip" data-sample="veozah" aria-pressed="false">Not on formulary</button>
+      <button class="chip" data-sample="cream" aria-pressed="false">Partly approved</button>
+      <button class="chip" data-sample="paste" aria-pressed="false">Paste my own</button>
+    </div>
+
+    <div id="letter" class="letter" aria-live="polite"></div>
+    <textarea id="paste" aria-label="Paste your letter" hidden placeholder="Paste the text of your letter here. Remove your name, member ID, and address first."></textarea>
+
+    <div id="definition" class="definition" hidden aria-live="polite"></div>
+    <p class="hint">Highlighted words are insurance terms. Tap one to see what it means.</p>
+
+    <div class="actions">
+      <button id="explain" class="primary">Explain this letter</button>
+      <button id="edit" class="chip" type="button" hidden>Edit letter</button>
+    </div>
+
+    <details class="live">
+      <summary>Live mode (use your own Anthropic API key)</summary>
+      <p>The examples work without a key. To explain a letter you paste, add a key. It stays in this browser tab and is sent only to Anthropic.</p>
+      <label for="key">Anthropic API key</label>
+      <input id="key" type="password" autocomplete="off" placeholder="sk-ant-...">
+    </details>
+  </section>
+
+  <section aria-labelledby="result-h">
+    <h2 id="result-h">What it means</h2>
+    <div id="results" class="results" aria-live="polite">
+      <div class="empty">Choose a letter and select <strong>Explain this letter</strong>.</div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p><strong>This is a portfolio prototype, not medical, legal, or insurance advice.</strong> Example letters are fictional. Always confirm details with your pharmacy, your prescriber, or the phone number on your letter.</p>
+  <p>Product docs: <a href="PRD.md">PRD</a>, <a href="ai-behavior-spec.md">AI behavior spec</a>, <a href="eval-plan.md">evaluation plan</a>.</p>
+</footer>
+
+<script>
+const MODEL = "claude-sonnet-4-6";
+
+/* ---------- Glossary: drives the highlighter (works offline) ---------- */
+const GLOSSARY = [
+  ["formulary exception", "A request asking your plan to cover a drug that isn't on its list. Your prescriber usually has to explain why you need it."],
+  ["prior authorization", "Your plan wants approval before it pays. Your prescriber's office usually submits the paperwork."],
+  ["step therapy", "The plan wants you to try a cheaper or preferred drug first before it covers this one."],
+  ["quantity limit", "The plan covers only a set amount over a set time, like one tube per 30 days."],
+  ["medical necessity", "Proof from your prescriber that this specific drug is needed for you, not just preferred."],
+  ["non-formulary", "Not on your plan's list of covered drugs."],
+  ["formulary", "Your plan's list of covered drugs."],
+  ["expedited", "Faster review, usually within 72 hours, when waiting could seriously harm your health."],
+  ["coverage determination", "The plan's official decision about whether it will pay for a drug."],
+  ["independent review", "An outside reviewer, not your plan, looks at the decision if your appeal is denied."],
+  ["appeal", "Asking the plan to reconsider its decision. There is usually a deadline."],
+  ["tier", "A cost level. Higher tiers usually mean a higher copay."],
+  ["prescriber", "The doctor, nurse practitioner, or other clinician who wrote your prescription."]
+];
+
+/* ---------- Fictional sample letters ---------- */
+const SAMPLES = {
+  patch: `Willowbrook Health Plan — Pharmacy Services
+Date of notice: September 15, 2026
+
+RE: Coverage determination for estradiol transdermal patch 0.05 mg/day
+
+Dear Member,
+
+We reviewed the prior authorization request submitted by your prescriber for the medication listed above. This request has been denied.
+
+Reason for decision: Your plan requires step therapy for this medication. Coverage criteria require a documented trial of a preferred alternative (oral estradiol tablets) for at least 30 days, or documentation of medical necessity explaining why the preferred alternative is not appropriate. We did not find this documentation in the request.
+
+Your rights: You or your prescriber may file an appeal within 60 calendar days of the date of this notice. If you believe waiting could seriously jeopardize your health, you may request an expedited appeal.
+
+Questions? Call Member Services at 1-800-555-0142 (TTY 711), Monday–Friday, 8 a.m.–8 p.m.`,
+
+  veozah: `Brightline Rx Benefits
+Notice date: October 1, 2026
+
+Medication requested: fezolinetant (Veozah) 45 mg tablet
+
+This medication is non-formulary under your current plan and is not covered.
+
+Your prescriber may submit a formulary exception request. The request must include a statement of medical necessity indicating that covered formulary alternatives have been ineffective, not tolerated, or are clinically inappropriate for you.
+
+Covered alternatives for your condition may include medications listed on Tier 2 of your formulary. Please discuss options with your prescriber.
+
+A formulary exception request may be submitted at any time. If an exception is denied, you may appeal within 65 days of that decision, and you may be eligible for independent review.
+
+Contact: 1-888-555-0199`,
+
+  cream: `Willowbrook Health Plan — Pharmacy Services
+Date of notice: October 5, 2026
+
+RE: estradiol vaginal cream 0.01%
+
+Your prescription has been partially approved.
+
+Approved: 1 tube (42.5 g) per 90 days.
+Requested: 1 tube (42.5 g) per 30 days.
+
+Reason: The requested amount exceeds the quantity limit for this medication under your plan. The approved amount reflects the plan's standard dosing guidelines.
+
+If your prescriber believes a higher quantity is needed, they may submit a new request with supporting medical necessity documentation. You may also appeal this decision within 60 calendar days of the date of this notice.
+
+Questions? Call Member Services at 1-800-555-0142 (TTY 711).`
+};
+
+/* ---------- Pre-computed explanations for demo mode ---------- */
+const DEMO = {
+  patch: {
+    summary: "Your plan said no to covering your estrogen patch for now. It wants you to try estrogen pills first, or for your prescriber to explain why pills aren't right for you.",
+    reason: { plain: "This is called step therapy. The plan prefers a cheaper option first, and the request didn't include a note explaining why you need the patch instead.", evidence: "Coverage criteria require a documented trial of a preferred alternative (oral estradiol tablets) for at least 30 days, or documentation of medical necessity" },
+    deadline: { date: "November 14, 2026", plain: "Last day to file an appeal (60 days from September 15).", evidence: "within 60 calendar days of the date of this notice" },
+    next_steps: [
+      "Call your prescriber's office. Tell them the patch was denied for step therapy and ask whether they can send a medical necessity note.",
+      "If you've already tried estrogen pills, tell your prescriber when and what happened. That history may be the missing piece.",
+      "Ask your pharmacy what the patch would cost without coverage while this is sorted out, so you can plan."
+    ],
+    questions: [
+      "Is there a medical reason the patch is better for me than pills?",
+      "Can you send the medical necessity documentation, and when?",
+      "Should we file an appeal, or a new request with the missing information?"
+    ],
+    escalate: { needed: false, why: "You have time to act. Start with your prescriber's office this week." }
+  },
+  veozah: {
+    summary: "Veozah isn't on your plan's list of covered drugs, so it isn't covered right now. Your prescriber can ask for an exception.",
+    reason: { plain: "The drug is non-formulary. To make an exception, the plan wants your prescriber to show that covered options didn't work, caused problems, or aren't safe for you.", evidence: "covered formulary alternatives have been ineffective, not tolerated, or are clinically inappropriate for you" },
+    deadline: { date: null, plain: "No deadline to ask for an exception. If the exception is denied, you'd have 65 days to appeal that decision.", evidence: "A formulary exception request may be submitted at any time." },
+    next_steps: [
+      "Ask your prescriber to submit a formulary exception request for Veozah.",
+      "Write down which treatments you've already tried for hot flashes or night sweats and how they went. Share it with your prescriber.",
+      "Ask your prescriber about the covered Tier 2 options the letter mentions, so you can compare."
+    ],
+    questions: [
+      "Do I qualify for a formulary exception based on what I've tried?",
+      "Which covered options would you consider for me, and why or why not?",
+      "Does the maker of Veozah offer a savings program while we wait?"
+    ],
+    escalate: { needed: false, why: "No deadline right now. Your prescriber's office is the next stop." }
+  },
+  cream: {
+    summary: "Your plan approved your vaginal estrogen cream, but less of it: one tube every 90 days instead of every 30.",
+    reason: { plain: "Your prescription is above the plan's quantity limit. The plan approved what it considers a standard amount.", evidence: "The requested amount exceeds the quantity limit for this medication under your plan." },
+    deadline: { date: "December 4, 2026", plain: "Last day to appeal (60 days from October 5).", evidence: "within 60 calendar days of the date of this notice" },
+    next_steps: [
+      "You can fill the approved amount now. Ask your pharmacy when your next fill is allowed.",
+      "Check how long a tube actually lasts at the dose your prescriber gave you. If it won't last 90 days, tell your prescriber.",
+      "If you need more, ask your prescriber to send a new request with medical necessity documentation, or to appeal."
+    ],
+    questions: [
+      "Will one tube last 90 days at my dose?",
+      "If not, can you send documentation for a higher amount?",
+      "Should I change how I use it until this is settled? (Ask before changing anything.)"
+    ],
+    escalate: { needed: false, why: "Not urgent. Watch the December 4 appeal date if your supply won't last." }
+  }
+};
+
+/* ---------- Helpers ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+let current = "patch";
+
+function highlight(text) {
+  const safe = esc(text);
+  const pattern = new RegExp("\\b(" + GLOSSARY.map(g => g[0].replace(/[-]/g, "\\-")).join("|") + ")\\b", "gi");
+  return safe.replace(pattern, (m) => `<button class="term" type="button" aria-expanded="false" data-term="${m.toLowerCase()}">${m}</button>`);
+}
+
+function showLetter() {
+  const letter = $("#letter"), paste = $("#paste");
+  $("#definition").hidden = true;
+  $("#edit").hidden = true;
+  if (current === "paste") {
+    letter.hidden = true; paste.hidden = false; paste.focus();
+  } else {
+    paste.hidden = true; letter.hidden = false;
+    letter.innerHTML = highlight(SAMPLES[current]);
+  }
+}
+
+document.querySelectorAll(".chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".chip").forEach(b => b.setAttribute("aria-pressed", "false"));
+    btn.setAttribute("aria-pressed", "true");
+    current = btn.dataset.sample;
+    showLetter();
+    $("#results").innerHTML = '<div class="empty">Select <strong>Explain this letter</strong> to see what it means.</div>';
+  });
+});
+
+$("#letter").addEventListener("click", (e) => {
+  const t = e.target.closest("button.term");
+  if (!t) return;
+  const box = $("#definition");
+  const wasOpen = t.getAttribute("aria-expanded") === "true";
+  document.querySelectorAll("button.term").forEach(b => b.setAttribute("aria-expanded", "false"));
+  if (wasOpen) { box.hidden = true; return; }
+  const entry = GLOSSARY.find(g => g[0] === t.dataset.term);
+  if (!entry) return;
+  document.querySelectorAll(`button.term[data-term="${t.dataset.term}"]`).forEach(b => b.setAttribute("aria-expanded", "true"));
+  box.innerHTML = `<strong>${esc(entry[0][0].toUpperCase() + entry[0].slice(1))}</strong>${esc(entry[1])}`;
+  box.hidden = false;
+});
+
+/* ---------- Render ---------- */
+function render(r) {
+  const ev = (q) => q ? `<p class="evidence">From your letter: “${esc(q)}”</p>` : "";
+  const dl = r.deadline || {};
+  const esc_ = r.escalate || { needed: false, why: "" };
+  $("#results").innerHTML = `
+    <div class="block"><p class="summary">${esc(r.summary)}</p></div>
+    <div class="block"><h3>Why</h3><p>${esc(r.reason?.plain || "Your letter doesn't say.")}</p>${ev(r.reason?.evidence)}</div>
+    <div class="block deadline">
+      <h3>Deadline</h3>
+      ${dl.date ? `<p class="date">${esc(dl.date)}</p>` : ""}
+      <p>${esc(dl.plain || "Your letter doesn't give a deadline. Call the number on the letter to confirm.")}</p>${ev(dl.evidence)}
+    </div>
+    <div class="block"><h3>What you can do</h3><ol class="steps">${(r.next_steps || []).map(s => `<li>${esc(s)}</li>`).join("")}</ol></div>
+    <div class="block"><h3>Questions to ask your prescriber or pharmacist</h3><ul class="qs">${(r.questions || []).map(s => `<li>${esc(s)}</li>`).join("")}</ul></div>
+    <div class="block handoff ${esc_.needed ? "urgent" : "routine"}">
+      <h3>${esc_.needed ? "Call today" : "How soon to act"}</h3><p>${esc(esc_.why)}</p>
+    </div>`;
+}
+
+/* ---------- Live mode ---------- */
+const SYSTEM = `You help patients understand insurance coverage letters for menopause-related prescriptions.
+Return ONLY a JSON object, no other text, matching:
+{"summary": string, "reason": {"plain": string, "evidence": string|null},
+ "deadline": {"date": string|null, "plain": string, "evidence": string|null},
+ "next_steps": string[], "questions": string[],
+ "escalate": {"needed": boolean, "why": string}}
+Rules:
+- Use only information in the letter. "evidence" must be an exact quote from the letter, or null.
+- If the letter does not state something, say "Your letter doesn't say" rather than guessing.
+- Calculate deadline dates from the notice date when the letter gives a number of days. Write deadline.date like "November 14, 2026". Today is ${new Date().toDateString()}.
+- Write at a 6th-8th grade reading level. Short sentences. No jargon without explanation.
+- Never tell the patient to start, stop, or change a medication or dose. Direct clinical questions to the prescriber or pharmacist.
+- next_steps: 2-4 concrete actions. questions: 2-3 questions for the prescriber or pharmacist.
+- Set escalate.needed = true if: the deadline is within 14 days of today or has passed; the letter mentions an urgent or expedited situation; the patient may run out of medication soon; the text is not a coverage letter; or you cannot tell what the letter decided. Explain why in plain words.`;
+
+async function explainLive(text, key) {
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": key,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true"
+    },
+    body: JSON.stringify({ model: MODEL, max_tokens: 1200, system: SYSTEM, messages: [{ role: "user", content: text }] })
+  });
+  if (!res.ok) throw new Error(res.status === 401 ? "That API key didn't work. Check it and try again." : `The request failed (status ${res.status}). Try again in a moment.`);
+  const data = await res.json();
+  const raw = data.content.filter(b => b.type === "text").map(b => b.text).join("").replace(/```json|```/g, "").trim();
+  return JSON.parse(raw);
+}
+
+$("#explain").addEventListener("click", async () => {
+  const btn = $("#explain");
+  const key = $("#key").value.trim();
+  const text = current === "paste" ? $("#paste").value.trim() : SAMPLES[current];
+
+  if (current === "paste" && !text) {
+    $("#results").innerHTML = '<div class="error">Paste the text of your letter first.</div>'; return;
+  }
+  if (!key) {
+    if (current === "paste") {
+      $("#results").innerHTML = '<div class="error">Explaining your own letter needs live mode. Open <strong>Live mode</strong> and add an Anthropic API key, or try one of the example letters.</div>';
+      return;
+    }
+    render(DEMO[current]); return;
+  }
+  btn.disabled = true; btn.textContent = "Reading your letter…";
+  try { render(await explainLive(text, key)); }
+  catch (err) { $("#results").innerHTML = `<div class="error">${esc(err.message || "Something went wrong reading the response. Try again.")}</div>`; }
+  finally { btn.disabled = false; btn.textContent = "Explain this letter"; }
+});
+
+// After pasting, show the letter with insurance terms highlighted; "Edit letter" goes back to the text box.
+$("#paste").addEventListener("blur", () => {
+  const v = $("#paste").value.trim();
+  if (v && current === "paste") {
+    $("#paste").hidden = true; $("#letter").hidden = false;
+    $("#letter").innerHTML = highlight(v); $("#edit").hidden = false;
+  }
+});
+$("#edit").addEventListener("click", () => {
+  $("#letter").hidden = true; $("#edit").hidden = true; $("#definition").hidden = true;
+  $("#paste").hidden = false; $("#paste").focus();
+});
+
+showLetter();
+</script>
+</body>
+</html>
